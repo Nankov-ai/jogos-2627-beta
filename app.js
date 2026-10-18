@@ -8,7 +8,7 @@ const LEVAR = ["equipamento de jogo", "caneleiras", "chuteiras", "garrafa de ág
 const CHAVE = "beta-convocados-v1";     // { idJogo: true }
 const CHAVE_DEF = "beta-definicoes-v1"; // viagem e antecedência de cada utilizador
 const CHAVE_REG = "beta-registo-v1";    // { idJogo: { golosNos, golosAdv, marcadores, arbitro, titular, equipamento, notas } }
-const PADRAO = { configurado: false, modo: "estimativa", fixo: 45, antecedencia: 60 };
+const PADRAO = { configurado: false, modo: "estimativa", fixo: 45, antecedencia: 60, numero: null };
 
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, "0");
@@ -305,6 +305,14 @@ function render() {
 $("anteriores").onclick = () => { mostrarAnteriores = !mostrarAnteriores; render(); };
 render();
 
+// Só um painel aberto de cada vez (definições, registo, equipamento, exportação)
+function esconderPaineis() {
+  for (const id of ["definicoes", "registo", "equip", "exportar"]) {
+    const e = $(id);
+    if (e) e.hidden = true;
+  }
+}
+
 // ---------- Definições (viagem e antecedência) ----------
 let jogoPendente = null; // jogo que o utilizador tocou antes de ter definições
 
@@ -315,8 +323,8 @@ function abrirDefinicoes(g) {
   $("def-fixo").value = def.fixo;
   $("def-antec").value = def.antecedencia;
   $("def-continuar").textContent = g ? "Guardar e adicionar ao calendário" : "Guardar";
-  $("registo").hidden = true;
-  if ($("equip")) $("equip").hidden = true;
+  if ($("def-num")) $("def-num").value = def.numero ?? "";
+  esconderPaineis();
   $("definicoes").hidden = false;
   $("definicoes").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -336,6 +344,7 @@ if ($("def-form")) { // tolera uma página guardada em memória sem o painel de 
       modo: $("def-modo-fixo").checked ? "fixo" : "estimativa",
       fixo: inteiro("def-fixo", 0, 180, 45),
       antecedencia: inteiro("def-antec", 0, 180, 60),
+      numero: $("def-num") ? numero($("def-num").value, 1, 99) : def.numero,
     };
     gravarDefinicoes(def);
     $("definicoes").hidden = true;
@@ -362,8 +371,7 @@ let jogoEquip = null;
 function abrirEquipamento(g) {
   jogoEquip = g;
   $("equip-jogo").textContent = `Equipa ${g.equipa} ${g.emCasa ? "vs" : "@"} ${g.adversario} · ${fmtDia(g.d)}, ${hhmm(g.d)}`;
-  $("definicoes").hidden = true;
-  $("registo").hidden = true;
+  esconderPaineis();
   $("equip").hidden = false;
   $("equip").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -420,8 +428,7 @@ function abrirRegisto(g) {
   $("reg-num").value = "";
   marcadoresTmp = [...(r.marcadores ?? [])];
   desenharMarcadores();
-  $("definicoes").hidden = true;
-  if ($("equip")) $("equip").hidden = true;
+  esconderPaineis();
   $("registo").hidden = false;
   $("registo").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -463,5 +470,172 @@ if ($("reg-form")) {
     jogoReg = null;
     $("registo").hidden = true;
     render();
+  });
+}
+
+// ---------- Exportar o que foi registado: resumo da época, PDF e cópia de segurança ----------
+const idsValidos = new Set(jogos.map((g) => g.id));
+
+function calcularResumo() {
+  const r = {
+    convocados: jogos.filter(conv).length, comResultado: 0, v: 0, e: 0, d: 0, gm: 0, gs: 0,
+    marcadores: new Map(), autogolos: 0, arbSim: 0, arbNao: 0, titular: 0, suplente: 0, naoJogou: 0, golosAtleta: null,
+  };
+  for (const g of jogos) {
+    const x = reg(g);
+    if (x.golosNos != null && x.golosAdv != null) {
+      r.comResultado++; r.gm += x.golosNos; r.gs += x.golosAdv;
+      if (x.golosNos > x.golosAdv) r.v++; else if (x.golosNos < x.golosAdv) r.d++; else r.e++;
+    }
+    for (const n of x.marcadores ?? []) {
+      if (n === 0) r.autogolos++; else r.marcadores.set(n, (r.marcadores.get(n) || 0) + 1);
+    }
+    if (x.arbitro === "sim") r.arbSim++; else if (x.arbitro === "nao") r.arbNao++;
+    if (x.titular === "titular") r.titular++; else if (x.titular === "suplente") r.suplente++; else if (x.titular === "nao-jogou") r.naoJogou++;
+  }
+  if (def.numero) r.golosAtleta = r.marcadores.get(def.numero) || 0;
+  return r;
+}
+
+function novo(tag, texto, classe) { // texto sempre via textContent (notas do utilizador nunca como HTML)
+  const e = document.createElement(tag);
+  if (texto != null) e.textContent = texto;
+  if (classe) e.className = classe;
+  return e;
+}
+
+function desenharRelatorio() {
+  const box = $("relatorio");
+  box.replaceChildren();
+  const r = calcularResumo();
+  box.append(novo("h3", "Registo da época 2026/27"));
+  box.append(novo("p", `Gerado em ${pad(new Date().getDate())}/${pad(new Date().getMonth() + 1)}/${new Date().getFullYear()} · só com o que foi registado neste telemóvel`, "meta"));
+  box.append(novo("h3", "Resumo"));
+  const ul = novo("ul");
+  const li = (t) => ul.append(novo("li", t));
+  li(`Jogos convocados: ${r.convocados}`);
+  li(`Jogos com resultado: ${r.comResultado} (${r.v} vitórias, ${r.e} empates, ${r.d} derrotas)`);
+  li(`Golos marcados: ${r.gm} · sofridos: ${r.gs}`);
+  if (r.marcadores.size || r.autogolos) {
+    const partes = [...r.marcadores].sort((a, b) => b[1] - a[1] || a[0] - b[0]).map(([n, k]) => `nº ${n} (${k})`);
+    if (r.autogolos) partes.push(`auto-golos do adversário (${r.autogolos})`);
+    li("Marcadores: " + partes.join(", "));
+  }
+  if (r.golosAtleta !== null) li(`Golos do atleta (camisola ${def.numero}): ${r.golosAtleta}`);
+  li(`Árbitro: sim em ${r.arbSim} jogos · não em ${r.arbNao}`);
+  li(`Atleta: titular ${r.titular} · suplente ${r.suplente} · não jogou ${r.naoJogou}`);
+  box.append(ul);
+
+  box.append(novo("h3", "Jogos"));
+  const linhas = jogos.filter((g) => conv(g) || Object.keys(reg(g)).length);
+  if (!linhas.length) {
+    box.append(novo("p", "Ainda não há jogos convocados nem registados.", "meta"));
+    return;
+  }
+  const tab = novo("table");
+  const cab = novo("tr");
+  for (const c of ["Data", "Jogo", "Resultado", "Marcadores", "Árbitro", "Equip.", "Notas"]) cab.append(novo("th", c));
+  const thead = novo("thead"); thead.append(cab); tab.append(thead);
+  const tb = novo("tbody");
+  for (const g of linhas) {
+    const x = reg(g), tr = novo("tr");
+    tr.append(novo("td", `${fmtDia(g.d)}, ${hhmm(g.d)}`));
+    tr.append(novo("td", `Equipa ${g.equipa} ${g.emCasa ? "vs" : "@"} ${g.adversario}${conv(g) ? "" : " (não convocado)"}`));
+    tr.append(novo("td", x.golosNos != null && x.golosAdv != null ? `${x.golosNos}–${x.golosAdv}` : "—"));
+    tr.append(novo("td", x.marcadores ? agruparMarcadores(x.marcadores) : "—"));
+    tr.append(novo("td", x.arbitro ? (x.arbitro === "sim" ? "sim" : "não") : "—"));
+    tr.append(novo("td", x.equipamento ?? "—"));
+    tr.append(novo("td", x.notas ?? "—"));
+    tb.append(tr);
+  }
+  tab.append(tb);
+  const volta = novo("div", null, "tabela");
+  volta.append(tab);
+  box.append(volta);
+}
+
+function mensagemExp(texto) {
+  const m = $("exp-msg");
+  m.textContent = texto;
+  m.hidden = false;
+}
+
+function copiaDados() {
+  return { app: "jogos-2627-beta", versao: 1, exportadoEm: new Date().toISOString(), convocados: estado, registo };
+}
+
+if ($("exportar")) {
+  $("abrir-exp").onclick = () => {
+    esconderPaineis();
+    $("exp-msg").hidden = true;
+    desenharRelatorio();
+    $("exportar").hidden = false;
+    $("exportar").scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  $("exp-fechar").onclick = () => { $("exportar").hidden = true; };
+
+  // PDF: a impressão do telemóvel já tem «Guardar como PDF»; o CSS de impressão mostra só o relatório.
+  $("exp-pdf").onclick = () => {
+    desenharRelatorio();
+    const antes = document.title;
+    document.title = "Registo-jogos-2026-27";
+    window.onafterprint = () => { document.title = antes; window.onafterprint = null; };
+    window.print();
+  };
+
+  $("exp-ficheiro").onclick = () => {
+    try {
+      const blob = new Blob([JSON.stringify(copiaDados(), null, 1)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `jogos-2627-copia-${ymd(new Date())}.json`;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      mensagemExp("Cópia pedida ao telemóvel. Se o ficheiro não aparecer em Transferências, use «Copiar cópia (texto)».");
+    } catch {
+      mensagemExp("Não foi possível criar o ficheiro. Use «Copiar cópia (texto)».");
+    }
+  };
+
+  $("exp-copiar").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(copiaDados()));
+      mensagemExp("Cópia copiada. Cole-a numa nota ou mensagem para si e guarde-a.");
+    } catch {
+      mensagemExp("O telemóvel não deixou copiar. Use «Cópia de segurança (ficheiro)».");
+    }
+  };
+
+  $("exp-carregar").onclick = () => $("exp-importar").click();
+  $("exp-importar").addEventListener("change", () => {
+    const f = $("exp-importar").files && $("exp-importar").files[0];
+    if (!f) return;
+    if (f.size > 500000) { mensagemExp("Ficheiro grande demais para ser uma cópia desta página."); return; }
+    const leitor = new FileReader();
+    leitor.onload = () => {
+      try {
+        const d = JSON.parse(String(leitor.result));
+        if (!d || typeof d !== "object" || !d.registo || typeof d.registo !== "object") throw new Error("formato");
+        let n = 0;
+        for (const [id, x] of Object.entries(d.registo)) {
+          if (!idsValidos.has(id)) continue;
+          const l = limparRegisto(x);
+          if (l) { registo[id] = l; n++; }
+        }
+        for (const [id, v] of Object.entries(d.convocados || {})) if (idsValidos.has(id) && v === true) estado[id] = true;
+        try { localStorage.setItem(CHAVE_REG, JSON.stringify(registo)); } catch { /* modo privado */ }
+        gravarEstado(estado);
+        desenharRelatorio();
+        render();
+        mensagemExp(`Cópia carregada: ${n} jogos com registo. Os registos do mesmo jogo foram substituídos pelos da cópia.`);
+      } catch {
+        mensagemExp("Este ficheiro não parece uma cópia desta página.");
+      }
+      $("exp-importar").value = "";
+    };
+    leitor.readAsText(f);
   });
 }

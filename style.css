@@ -59,7 +59,7 @@ main { padding-block: 16px; }
 .semana-bloco { margin-bottom: 8px; }
 .semana-bloco h2 { font-size: .85rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 22px 0 8px; }
 .topo-btn { width: 100%; margin-bottom: 4px; }
-.barra { margin-bottom: 12px; }
+.barra { margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
 .def { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 16px; }
 .def h2 { font-size: 1.05rem; margin: 0 0 4px; }
 .def form { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
@@ -79,3 +79,22 @@ main { padding-block: 16px; }
 .resumo-reg { color: var(--txt); margin-top: 8px; }
 .def select, .def textarea { font: inherit; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--txt); width: 100%; max-width: 20rem; }
 .def textarea { max-width: none; resize: vertical; }
+#relatorio { margin-top: 14px; }
+#relatorio h3 { font-size: .95rem; margin: 16px 0 6px; }
+#relatorio ul { margin: 0; padding-left: 1.1rem; font-size: .92rem; }
+#relatorio .tabela { overflow-x: auto; }
+#relatorio table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+#relatorio th, #relatorio td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+#relatorio th { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.so-impressao { display: none; }
+@media print {
+  header.faixa, .barra, #anteriores, #jogos, #definicoes, #registo, #equip, #resumo, .nota, #aviso { display: none !important; }
+  #exportar > :not(#relatorio) { display: none !important; }
+  #exportar { border: 0 !important; padding: 0 !important; background: #fff !important; }
+  body, main { background: #fff !important; }
+  #relatorio, #relatorio * { color: #000 !important; background: #fff !important; }
+  #relatorio th, #relatorio td { border-bottom: 1px solid #999 !important; }
+  .so-impressao { display: block; }
+  main > div, .faixa > div { max-width: none !important; }
+  #relatorio table { font-size: 11pt; }
+}

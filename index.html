@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#0b3d91">
 <title>Jogos 26.27 · BETA</title>
-<link rel="stylesheet" href="style.css?v=b20261018d">
+<link rel="stylesheet" href="style.css?v=b20261018f">
 </head>
 <body>
 <header class="faixa">
@@ -20,7 +20,8 @@
 
 <main>
   <div>
-    <div class="barra"><button id="abrir-def" class="btn sec" type="button">Definições de viagem</button></div>
+    <div class="barra"><button id="abrir-def" class="btn sec" type="button">Definições de viagem</button>
+      <button id="abrir-exp" class="btn sec" type="button">📄 Exportar o que registei</button></div>
 
     <section id="definicoes" class="def" hidden aria-labelledby="def-titulo">
       <h2 id="def-titulo">Antes de começar</h2>
@@ -37,11 +38,28 @@
         </fieldset>
         <label class="campo">Chegar ao campo quanto tempo antes do jogo (minutos)
           <input type="number" id="def-antec" inputmode="numeric" min="0" max="180" step="5" value="60"></label>
+        <label class="campo">Número de camisola do atleta (opcional, só para contar os golos dele)
+          <input type="number" id="def-num" inputmode="numeric" min="1" max="99" step="1"></label>
         <div class="acoes">
           <button type="submit" id="def-continuar" class="btn">Guardar</button>
           <button type="button" id="def-cancelar" class="btn sec">Cancelar</button>
         </div>
       </form>
+    </section>
+
+    <section id="exportar" class="def" hidden aria-labelledby="exp-titulo">
+      <h2 id="exp-titulo">Exportar o que registei</h2>
+      <p class="meta">O PDF e a cópia são gerados neste telemóvel, sem enviar nada para lado nenhum.</p>
+      <div class="acoes" id="exp-botoes">
+        <button type="button" id="exp-pdf" class="btn">📄 Guardar como PDF</button>
+        <button type="button" id="exp-ficheiro" class="btn sec">💾 Cópia de segurança (ficheiro)</button>
+        <button type="button" id="exp-copiar" class="btn sec">📋 Copiar cópia (texto)</button>
+        <button type="button" id="exp-carregar" class="btn sec">📂 Carregar cópia</button>
+        <button type="button" id="exp-fechar" class="btn sec">Fechar</button>
+        <input type="file" id="exp-importar" accept=".json,application/json" hidden>
+      </div>
+      <p id="exp-msg" class="aviso" hidden role="status"></p>
+      <div id="relatorio"></div>
     </section>
 
     <section id="equip" class="def" hidden aria-labelledby="equip-titulo">
@@ -110,9 +128,9 @@
   </div>
 </main>
 
-<script src="jogos.js?v=b20261018d"></script>
-<script src="viagem.js?v=b20261018d"></script>
-<script src="coords.js?v=b20261018d"></script>
-<script src="app.js?v=b20261018d"></script>
+<script src="jogos.js?v=b20261018f"></script>
+<script src="viagem.js?v=b20261018f"></script>
+<script src="coords.js?v=b20261018f"></script>
+<script src="app.js?v=b20261018f"></script>
 </body>
 </html>
