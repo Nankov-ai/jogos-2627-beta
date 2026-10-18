@@ -220,6 +220,11 @@ function cartao(g) {
       abrirDefinicoes(g);
       return;
     }
+    if (!reg(g).equipamento && $("equip")) { // o convite só abre depois de escolher o equipamento
+      ev.preventDefault();
+      abrirEquipamento(g);
+      return;
+    }
     estado[g.id] = true; gravarEstado(estado);
     setTimeout(render, 0);
   });
@@ -311,6 +316,7 @@ function abrirDefinicoes(g) {
   $("def-antec").value = def.antecedencia;
   $("def-continuar").textContent = g ? "Guardar e adicionar ao calendário" : "Guardar";
   $("registo").hidden = true;
+  if ($("equip")) $("equip").hidden = true;
   $("definicoes").hidden = false;
   $("definicoes").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -334,12 +340,49 @@ if ($("def-form")) { // tolera uma página guardada em memória sem o painel de 
     gravarDefinicoes(def);
     $("definicoes").hidden = true;
     const g = jogoPendente; jogoPendente = null;
-    if (g) {
-      estado[g.id] = true; gravarEstado(estado);
-      window.open(linkGoogle(g), "_blank", "noopener,noreferrer");
+    if (g && !reg(g).equipamento && $("equip")) { // falta o equipamento: perguntar antes de abrir o convite
+      render();
+      abrirEquipamento(g);
+      return;
     }
+    if (g) abrirConvite(g);
     render();
   });
+}
+
+// Marca o jogo como convocado e abre o convite do Google Calendar (já com o equipamento nas notas).
+function abrirConvite(g) {
+  estado[g.id] = true; gravarEstado(estado);
+  window.open(linkGoogle(g), "_blank", "noopener,noreferrer");
+}
+
+// ---------- Painel «Equipamento deste jogo» (aparece ao tocar em «Convocado») ----------
+let jogoEquip = null;
+
+function abrirEquipamento(g) {
+  jogoEquip = g;
+  $("equip-jogo").textContent = `Equipa ${g.equipa} ${g.emCasa ? "vs" : "@"} ${g.adversario} · ${fmtDia(g.d)}, ${hhmm(g.d)}`;
+  $("definicoes").hidden = true;
+  $("registo").hidden = true;
+  $("equip").hidden = false;
+  $("equip").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function escolherEquipamento(valor) {
+  const g = jogoEquip;
+  if (!g) return;
+  jogoEquip = null;
+  if (valor) guardarReg(g, { ...reg(g), equipamento: valor });
+  $("equip").hidden = true;
+  abrirConvite(g);
+  render();
+}
+
+if ($("equip")) {
+  $("equip-azul").onclick = () => escolherEquipamento("azul");
+  $("equip-branco").onclick = () => escolherEquipamento("branco");
+  $("equip-sem").onclick = () => escolherEquipamento("");
+  $("equip-cancelar").onclick = () => { jogoEquip = null; $("equip").hidden = true; };
 }
 
 // ---------- Painel «Registar jogo» ----------
@@ -378,6 +421,7 @@ function abrirRegisto(g) {
   marcadoresTmp = [...(r.marcadores ?? [])];
   desenharMarcadores();
   $("definicoes").hidden = true;
+  if ($("equip")) $("equip").hidden = true;
   $("registo").hidden = false;
   $("registo").scrollIntoView({ behavior: "smooth", block: "start" });
 }
