@@ -71,3 +71,11 @@ main { padding-block: 16px; }
 .def input[type=number] { font: inherit; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--txt); width: 8rem; }
 .def input:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
 .beta { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: #ffe48a; color: #4a2410; font-size: .7rem; font-weight: 700; letter-spacing: .08em; vertical-align: middle; }
+.eq { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.chip { font: inherit; font-size: .88rem; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--txt); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--brand); color: var(--brand-txt); border-color: var(--brand); font-weight: 600; }
+.chip:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.resumo-reg { color: var(--txt); margin-top: 8px; }
+.def select, .def textarea { font: inherit; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--txt); width: 100%; max-width: 20rem; }
+.def textarea { max-width: none; resize: vertical; }

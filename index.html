@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#0b3d91">
 <title>Jogos 26.27 · BETA</title>
-<link rel="stylesheet" href="style.css?v=b20261018b">
+<link rel="stylesheet" href="style.css?v=b20261018c">
 </head>
 <body>
 <header class="faixa">
@@ -44,6 +44,45 @@
       </form>
     </section>
 
+    <section id="registo" class="def" hidden aria-labelledby="reg-titulo">
+      <h2 id="reg-titulo">Registar jogo</h2>
+      <p class="meta" id="reg-jogo"></p>
+      <p class="meta">Fica só neste telemóvel. Os marcadores registam-se pelo <strong>número da camisola</strong>, nunca pelo nome.</p>
+      <form id="reg-form">
+        <fieldset>
+          <legend>Resultado</legend>
+          <label class="campo">Golos da nossa equipa
+            <input type="number" id="reg-nos" inputmode="numeric" min="0" max="99" step="1"></label>
+          <label class="campo">Golos do adversário
+            <input type="number" id="reg-adv" inputmode="numeric" min="0" max="99" step="1"></label>
+        </fieldset>
+        <fieldset>
+          <legend>Quem marcou (número da camisola)</legend>
+          <label class="campo">Número da camisola
+            <input type="number" id="reg-num" inputmode="numeric" min="1" max="99" step="1"></label>
+          <div class="acoes">
+            <button type="button" id="reg-add" class="btn">+ golo</button>
+            <button type="button" id="reg-ag" class="btn sec">+ auto-golo do adversário</button>
+          </div>
+          <div id="reg-chips" class="chips" aria-live="polite"></div>
+          <p id="reg-aviso" class="aviso" hidden></p>
+        </fieldset>
+        <label class="campo">Houve árbitro?
+          <select id="reg-arb"><option value="">—</option><option value="sim">Sim</option><option value="nao">Não</option></select></label>
+        <label class="campo">O atleta jogou como
+          <select id="reg-tit"><option value="">—</option><option value="titular">Titular</option><option value="suplente">Suplente</option><option value="nao-jogou">Não jogou</option></select></label>
+        <label class="campo">Equipamento
+          <select id="reg-eq"><option value="">—</option><option value="azul">Azul</option><option value="branco">Branco</option></select></label>
+        <label class="campo">Notas
+          <textarea id="reg-notas" rows="3" maxlength="500"></textarea></label>
+        <div class="acoes">
+          <button type="submit" class="btn">Guardar</button>
+          <button type="button" id="reg-cancelar" class="btn sec">Cancelar</button>
+          <button type="button" id="reg-apagar" class="btn sec">Apagar registo</button>
+        </div>
+      </form>
+    </section>
+
     <section class="resumo" id="resumo" hidden>
       <h2>Já convocado</h2>
       <ul id="convocados"></ul>
@@ -57,8 +96,9 @@
   </div>
 </main>
 
-<script src="jogos.js?v=b20261018b"></script>
-<script src="viagem.js?v=b20261018b"></script>
-<script src="app.js?v=b20261018b"></script>
+<script src="jogos.js?v=b20261018c"></script>
+<script src="viagem.js?v=b20261018c"></script>
+<script src="coords.js?v=b20261018c"></script>
+<script src="app.js?v=b20261018c"></script>
 </body>
 </html>

@@ -1,11 +1,13 @@
-// Calendário de jogos Sub-11 2026/27
+// Calendário de jogos Sub-11 2026/27 · VERSÃO DE TESTE (beta)
 // Escolhe-se o jogo para que o atleta foi convocado -> abre o Google Calendar já preenchido.
 // O evento no calendário cobre: viagem de ida + chegada ao campo (antecedência) + jogo (1 h 30) + viagem de regresso
 const JOGO_MIN = 90;
 // Equipamento a levar (aparece na descrição do evento do calendário). Para mudar a lista, editar aqui.
 const LEVAR = ["equipamento de jogo", "caneleiras", "chuteiras", "garrafa de água", "CC"];
-const CHAVE = "beta-convocados-v1";   // localStorage: { idJogo: true }
-const CHAVE_DEF = "beta-definicoes-v1"; // localStorage: viagem e antecedência de cada utilizador
+// Dados guardados só neste telemóvel. Prefixo "beta-": nunca tocar nas chaves da versão normal.
+const CHAVE = "beta-convocados-v1";     // { idJogo: true }
+const CHAVE_DEF = "beta-definicoes-v1"; // viagem e antecedência de cada utilizador
+const CHAVE_REG = "beta-registo-v1";    // { idJogo: { golosNos, golosAdv, marcadores, arbitro, titular, equipamento, notas } }
 const PADRAO = { configurado: false, modo: "estimativa", fixo: 45, antecedencia: 60 };
 
 const $ = (id) => document.getElementById(id);
@@ -40,6 +42,68 @@ function gravarDefinicoes(d) {
 }
 let def = lerDefinicoes();
 
+// ---------- Registo do jogo (resultado, marcadores, árbitro, equipamento, notas) ----------
+// Marcadores = NÚMEROS DE CAMISOLA (nunca nomes). 0 = auto-golo do adversário (conta para a nossa equipa).
+function numero(v, min, max) {
+  if (v === "" || v === null || v === undefined) return null;
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : null;
+}
+function limparRegisto(r) {
+  if (!r || typeof r !== "object") return null;
+  const out = {};
+  const nos = numero(r.golosNos, 0, 99), adv = numero(r.golosAdv, 0, 99);
+  if (nos !== null) out.golosNos = nos;
+  if (adv !== null) out.golosAdv = adv;
+  if (Array.isArray(r.marcadores)) {
+    const m = r.marcadores.map((x) => numero(x, 0, 99)).filter((x) => x !== null).slice(0, 30);
+    if (m.length) out.marcadores = m;
+  }
+  if (["sim", "nao"].includes(r.arbitro)) out.arbitro = r.arbitro;
+  if (["titular", "suplente", "nao-jogou"].includes(r.titular)) out.titular = r.titular;
+  if (["azul", "branco"].includes(r.equipamento)) out.equipamento = r.equipamento;
+  if (typeof r.notas === "string" && r.notas.trim()) out.notas = r.notas.trim().slice(0, 500);
+  return Object.keys(out).length ? out : null;
+}
+function lerRegisto() {
+  try {
+    const bruto = JSON.parse(localStorage.getItem(CHAVE_REG)) || {};
+    const out = {};
+    for (const [id, r] of Object.entries(bruto)) {
+      const l = limparRegisto(r);
+      if (l) out[id] = l;
+    }
+    return out;
+  } catch { return {}; }
+}
+let registo = lerRegisto();
+const reg = (g) => registo[g.id] || {};
+function guardarReg(g, r) {
+  const l = limparRegisto(r);
+  if (l) registo[g.id] = l; else delete registo[g.id];
+  try { localStorage.setItem(CHAVE_REG, JSON.stringify(registo)); } catch { /* modo privado */ }
+}
+
+function agruparMarcadores(m) {
+  const c = new Map();
+  for (const n of m) c.set(n, (c.get(n) || 0) + 1);
+  return [...c].map(([n, k]) => `${n === 0 ? "auto-golo" : "nº " + n}${k > 1 ? " ×" + k : ""}`).join(", ");
+}
+function resumoRegisto(g) {
+  const r = reg(g), p = [];
+  if (r.golosNos != null && r.golosAdv != null) {
+    const res = r.golosNos > r.golosAdv ? "vitória" : r.golosNos < r.golosAdv ? "derrota" : "empate";
+    p.push(`Resultado ${r.golosNos}–${r.golosAdv} (${res})`);
+  } else if (r.golosNos != null || r.golosAdv != null) {
+    p.push(`Resultado ${r.golosNos ?? "?"}–${r.golosAdv ?? "?"}`);
+  }
+  if (r.marcadores) p.push("marcadores: " + agruparMarcadores(r.marcadores));
+  if (r.arbitro) p.push("árbitro: " + (r.arbitro === "sim" ? "sim" : "não"));
+  if (r.titular) p.push({ titular: "titular", suplente: "suplente", "nao-jogou": "não jogou" }[r.titular]);
+  if (r.notas) p.push("notas: " + (r.notas.length > 80 ? r.notas.slice(0, 80) + "…" : r.notas));
+  return p.join(" · ");
+}
+
 const jogos = window.JOGOS.map((g) => ({ ...g, d: dataDe(g) }));
 const porSemana = new Map();
 for (const g of jogos) {
@@ -66,10 +130,15 @@ function titulo(g) {
   const casa = g.emCasa ? "(casa)" : "(fora)";
   return `Jogo Sub-11 · ${pad(g.d.getHours())}h${pad(g.d.getMinutes())} - Equipa ${g.equipa} vs ${g.adversario} ${casa}`;
 }
+// "equipamento de jogo (azul), caneleiras, …": a cor escolhida para este jogo fica nas notas do evento
+function listaLevar(g) {
+  const eq = reg(g).equipamento;
+  return LEVAR.map((x) => (x === "equipamento de jogo" && eq ? `${x} (${eq})` : x)).join(", ");
+}
 function detalhes(g) {
   return `Jogo às ${hhmm(g.d)} · sair às ${hhmm(inicioEvento(g))}, chegar ao campo às ${hhmm(somaMin(g.d, -def.antecedencia))}, ` +
     `fim do jogo às ${hhmm(somaMin(g.d, JOGO_MIN))}\n` +
-    `Levar: ${LEVAR.join(", ")}\n` +
+    `Levar: ${listaLevar(g)}\n` +
     `Liga Sub-11 Futebol 7 · Série ${g.serie} · Jornada ${g.jornada}\nJogo ${g.id}`;
 }
 function linkGoogle(g) {
@@ -79,8 +148,13 @@ function linkGoogle(g) {
   });
   return "https://calendar.google.com/calendar/render?" + p.toString();
 }
-// "Café/bar perto": pesquisa no Google Maps à volta do campo (usa o nome do campo já verificado)
-const linkCafe = (g) => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("café perto de " + g.mapa);
+// "Café perto": pesquisa de cafés com o mapa centrado no campo (coordenadas confirmadas no Google Maps),
+// para o campo ficar no centro do mapa. Sem coordenadas, pesquisa pelo nome do campo.
+function linkCafe(g) {
+  const c = (window.COORDS || {})[g.campo];
+  if (c) return `https://www.google.com/maps/search/caf%C3%A9/@${c[0]},${c[1]},17z`;
+  return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("café perto de " + g.mapa);
+}
 const linkMapa = (g) => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(g.mapa);
 
 // ---------- Interface ----------
@@ -92,6 +166,15 @@ function textoViagem(g) {
   return `Viagem ${viagemMin(g)} min (tempo definido por si)`;
 }
 
+function botaoLink(texto, href, classe) {
+  const a = document.createElement("a");
+  a.className = classe;
+  a.target = "_blank"; a.rel = "noopener noreferrer";
+  a.href = href;
+  a.textContent = texto;
+  return a;
+}
+
 function cartao(g) {
   const el = document.createElement("article");
   el.className = `card ${g.equipa === "G" ? "g" : ""} ${conv(g) ? "on" : ""}`;
@@ -101,14 +184,36 @@ function cartao(g) {
     <p class="meta">${fmtDia(g.d)} · Jornada ${g.jornada} · ${g.emCasa ? "Em casa" : "Fora"}</p>
     <p class="meta"><a href="${linkMapa(g)}" target="_blank" rel="noopener noreferrer">${g.campo}</a></p>
     <p class="meta">${textoViagem(g)}</p>
+    <div class="eq" role="group" aria-label="Equipamento deste jogo"><span class="meta">Equipamento:</span></div>
+    <p class="meta resumo-reg" hidden></p>
     <div class="acoes"></div>`;
+
+  // Equipamento azul/branco: toque para escolher, toque outra vez para limpar. Fica nas notas do evento.
+  const eq = el.querySelector(".eq");
+  for (const [valor, nome] of [["azul", "Azul"], ["branco", "Branco"]]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = nome;
+    b.setAttribute("aria-pressed", String(reg(g).equipamento === valor));
+    b.addEventListener("click", () => {
+      guardarReg(g, { ...reg(g), equipamento: reg(g).equipamento === valor ? undefined : valor });
+      render();
+    });
+    eq.append(b);
+  }
+
+  const resumo = resumoRegisto(g);
+  if (resumo) {
+    const p = el.querySelector(".resumo-reg");
+    p.hidden = false;
+    p.textContent = resumo;
+  }
+
   const acoes = el.querySelector(".acoes");
 
-  const principal = document.createElement("a");
-  principal.className = "btn main";
-  principal.target = "_blank"; principal.rel = "noopener noreferrer";
-  principal.href = linkGoogle(g);
-  principal.textContent = conv(g) ? "✓ Convocado · adicionar de novo" : "Convocado → adicionar ao calendário";
+  const principal = botaoLink(
+    conv(g) ? "✓ Convocado · adicionar de novo" : "Convocado → adicionar ao calendário", linkGoogle(g), "btn main");
   principal.addEventListener("click", (ev) => {
     if (!def.configurado && $("def-form")) { // primeira vez: pedir a viagem e a antecedência antes de agendar
       ev.preventDefault();
@@ -120,12 +225,14 @@ function cartao(g) {
   });
   acoes.append(principal);
 
-  const cafe = document.createElement("a");
-  cafe.className = "btn sec";
-  cafe.target = "_blank"; cafe.rel = "noopener noreferrer";
-  cafe.href = linkCafe(g);
-  cafe.textContent = "☕ Café/bar perto";
-  acoes.append(cafe);
+  acoes.append(botaoLink("☕ Café perto", linkCafe(g), "btn sec"));
+
+  const registar = document.createElement("button");
+  registar.type = "button";
+  registar.className = "btn sec";
+  registar.textContent = resumo ? "📝 Editar registo" : "📝 Registar jogo";
+  registar.addEventListener("click", () => abrirRegisto(g));
+  acoes.append(registar);
 
   if (conv(g)) {
     const rm = document.createElement("button");
@@ -203,6 +310,7 @@ function abrirDefinicoes(g) {
   $("def-fixo").value = def.fixo;
   $("def-antec").value = def.antecedencia;
   $("def-continuar").textContent = g ? "Guardar e adicionar ao calendário" : "Guardar";
+  $("registo").hidden = true;
   $("definicoes").hidden = false;
   $("definicoes").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -220,7 +328,7 @@ if ($("def-form")) { // tolera uma página guardada em memória sem o painel de 
     def = {
       configurado: true,
       modo: $("def-modo-fixo").checked ? "fixo" : "estimativa",
-        fixo: inteiro("def-fixo", 0, 180, 45),
+      fixo: inteiro("def-fixo", 0, 180, 45),
       antecedencia: inteiro("def-antec", 0, 180, 60),
     };
     gravarDefinicoes(def);
@@ -230,6 +338,86 @@ if ($("def-form")) { // tolera uma página guardada em memória sem o painel de 
       estado[g.id] = true; gravarEstado(estado);
       window.open(linkGoogle(g), "_blank", "noopener,noreferrer");
     }
+    render();
+  });
+}
+
+// ---------- Painel «Registar jogo» ----------
+let jogoReg = null;      // jogo que está a ser registado
+let marcadoresTmp = [];  // marcadores (números de camisola) enquanto o painel está aberto
+
+function desenharMarcadores() {
+  const box = $("reg-chips");
+  box.replaceChildren();
+  marcadoresTmp.forEach((n, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = `${n === 0 ? "auto-golo" : "nº " + n} ✕`;
+    b.setAttribute("aria-label", `Remover golo ${n === 0 ? "auto-golo" : "do número " + n}`);
+    b.addEventListener("click", () => { marcadoresTmp.splice(i, 1); desenharMarcadores(); });
+    box.append(b);
+  });
+  const nos = numero($("reg-nos").value, 0, 99);
+  const aviso = $("reg-aviso");
+  aviso.hidden = !(nos !== null && marcadoresTmp.length > nos);
+  aviso.textContent = "Indicou mais marcadores do que golos da vossa equipa. Confirme o resultado.";
+}
+
+function abrirRegisto(g) {
+  jogoReg = g;
+  const r = reg(g);
+  $("reg-jogo").textContent = `Equipa ${g.equipa} ${g.emCasa ? "vs" : "@"} ${g.adversario} · ${fmtDia(g.d)}, ${hhmm(g.d)}`;
+  $("reg-nos").value = r.golosNos ?? "";
+  $("reg-adv").value = r.golosAdv ?? "";
+  $("reg-arb").value = r.arbitro ?? "";
+  $("reg-tit").value = r.titular ?? "";
+  $("reg-eq").value = r.equipamento ?? "";
+  $("reg-notas").value = r.notas ?? "";
+  $("reg-num").value = "";
+  marcadoresTmp = [...(r.marcadores ?? [])];
+  desenharMarcadores();
+  $("definicoes").hidden = true;
+  $("registo").hidden = false;
+  $("registo").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function juntarMarcador(n) {
+  if (n === null) { $("reg-num").focus(); return; }
+  if (marcadoresTmp.length >= 30) return;
+  marcadoresTmp.push(n);
+  $("reg-num").value = "";
+  desenharMarcadores();
+}
+
+if ($("reg-form")) {
+  $("reg-add").onclick = () => juntarMarcador(numero($("reg-num").value, 1, 99));
+  $("reg-ag").onclick = () => juntarMarcador(0);
+  $("reg-num").addEventListener("keydown", (ev) => { // Enter junta o golo em vez de guardar tudo
+    if (ev.key === "Enter") { ev.preventDefault(); juntarMarcador(numero($("reg-num").value, 1, 99)); }
+  });
+  $("reg-nos").addEventListener("input", desenharMarcadores);
+  $("reg-cancelar").onclick = () => { jogoReg = null; $("registo").hidden = true; };
+  $("reg-apagar").onclick = () => {
+    if (jogoReg) guardarReg(jogoReg, {});
+    jogoReg = null;
+    $("registo").hidden = true;
+    render();
+  };
+  $("reg-form").addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    if (!jogoReg) return;
+    guardarReg(jogoReg, {
+      golosNos: $("reg-nos").value,
+      golosAdv: $("reg-adv").value,
+      marcadores: marcadoresTmp,
+      arbitro: $("reg-arb").value,
+      titular: $("reg-tit").value,
+      equipamento: $("reg-eq").value,
+      notas: $("reg-notas").value,
+    });
+    jogoReg = null;
+    $("registo").hidden = true;
     render();
   });
 }
