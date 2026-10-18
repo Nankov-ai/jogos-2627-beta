@@ -155,6 +155,20 @@ function linkCafe(g) {
   if (c) return `https://www.google.com/maps/search/caf%C3%A9/@${c[0]},${c[1]},17z`;
   return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("café perto de " + g.mapa);
 }
+// "Café mais perto": caminho a pé do campo (ponto A, pelo nome) até ao café mais próximo (ponto B).
+// Assim o campo fica sempre identificado no mapa e vê-se a distância e o tempo reais.
+function linkCafeMaisPerto(g) {
+  const c = (window.CAFES || {})[g.campo];
+  if (!c) return null;
+  return "https://www.google.com/maps/dir/?api=1&origin=" + encodeURIComponent(g.mapa) +
+    "&destination=" + encodeURIComponent(c.dest || `${c.nome}, ${c.morada}, ${c.loc}`) + "&travelmode=walking";
+}
+function textoCafe(g) {
+  const c = (window.CAFES || {})[g.campo];
+  if (!c) return "";
+  const dist = c.m < 1000 ? `${c.m} m` : `${(c.m / 1000).toFixed(1).replace(".", ",")} km`;
+  return `Café mais perto: ${c.nome} · ≈ ${dist} do campo (em linha reta)`;
+}
 const linkMapa = (g) => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(g.mapa);
 
 // ---------- Interface ----------
@@ -184,6 +198,7 @@ function cartao(g) {
     <p class="meta">${fmtDia(g.d)} · Jornada ${g.jornada} · ${g.emCasa ? "Em casa" : "Fora"}</p>
     <p class="meta"><a href="${linkMapa(g)}" target="_blank" rel="noopener noreferrer">${g.campo}</a></p>
     <p class="meta">${textoViagem(g)}</p>
+    <p class="meta cafe-info" hidden></p>
     <div class="eq" role="group" aria-label="Equipamento deste jogo"><span class="meta">Equipamento:</span></div>
     <p class="meta resumo-reg" hidden></p>
     <div class="acoes"></div>`;
@@ -201,6 +216,13 @@ function cartao(g) {
       render();
     });
     eq.append(b);
+  }
+
+  const infoCafe = textoCafe(g);
+  if (infoCafe) {
+    const p = el.querySelector(".cafe-info");
+    p.hidden = false;
+    p.textContent = infoCafe;
   }
 
   const resumo = resumoRegisto(g);
@@ -230,7 +252,9 @@ function cartao(g) {
   });
   acoes.append(principal);
 
-  acoes.append(botaoLink("☕ Café perto", linkCafe(g), "btn sec"));
+  const maisPerto = linkCafeMaisPerto(g);
+  if (maisPerto) acoes.append(botaoLink("☕ Café mais perto", maisPerto, "btn sec"));
+  acoes.append(botaoLink(maisPerto ? "☕ Mais cafés" : "☕ Café perto", linkCafe(g), "btn sec"));
 
   const registar = document.createElement("button");
   registar.type = "button";
