@@ -242,9 +242,10 @@ function cartao(g) {
       abrirDefinicoes(g);
       return;
     }
-    if (!reg(g).equipamento && $("equip")) { // o convite só abre depois de escolher o equipamento
+    if (precisaPerguntar(g)) { // o convite só abre depois de resolver o conflito do fim de semana e escolher o equipamento
       ev.preventDefault();
-      abrirEquipamento(g);
+      decididoConflito.delete(g.id);
+      continuarConvocatoria(g);
       return;
     }
     estado[g.id] = true; gravarEstado(estado);
@@ -331,7 +332,7 @@ render();
 
 // Só um painel aberto de cada vez (definições, registo, equipamento, exportação)
 function esconderPaineis() {
-  for (const id of ["definicoes", "registo", "equip", "exportar"]) {
+  for (const id of ["definicoes", "registo", "equip", "exportar", "conflito"]) {
     const e = $(id);
     if (e) e.hidden = true;
   }
@@ -373,13 +374,8 @@ if ($("def-form")) { // tolera uma página guardada em memória sem o painel de 
     gravarDefinicoes(def);
     $("definicoes").hidden = true;
     const g = jogoPendente; jogoPendente = null;
-    if (g && !reg(g).equipamento && $("equip")) { // falta o equipamento: perguntar antes de abrir o convite
-      render();
-      abrirEquipamento(g);
-      return;
-    }
-    if (g) abrirConvite(g);
     render();
+    if (g) { decididoConflito.delete(g.id); continuarConvocatoria(g); }
   });
 }
 
@@ -387,6 +383,53 @@ if ($("def-form")) { // tolera uma página guardada em memória sem o painel de 
 function abrirConvite(g) {
   estado[g.id] = true; gravarEstado(estado);
   window.open(linkGoogle(g), "_blank", "noopener,noreferrer");
+}
+
+// ---------- Passos ao tocar em «Convocado»: conflito do fim de semana -> equipamento -> convite ----------
+// Outro jogo já convocado no mesmo fim de semana (o jogo que se toca ainda não está convocado)
+function conflitoSemana(g) {
+  if (conv(g)) return null;
+  return (porSemana.get(chaveSemana(g.d)) || []).find((x) => x.id !== g.id && conv(x)) || null;
+}
+const decididoConflito = new Set(); // jogos para os quais o utilizador já decidiu o conflito neste toque
+const precisaPerguntar = (g) => (!!conflitoSemana(g) && !!$("conflito")) || (!reg(g).equipamento && !!$("equip"));
+
+function continuarConvocatoria(g) {
+  const outro = conflitoSemana(g);
+  if (outro && $("conflito") && !decididoConflito.has(g.id)) { abrirConflito(g, outro); return; }
+  if (!reg(g).equipamento && $("equip")) { abrirEquipamento(g); return; }
+  abrirConvite(g);
+  render();
+}
+
+// ---------- Painel «Já tem um jogo neste fim de semana» ----------
+let jogoConflito = null, outroConflito = null;
+
+function abrirConflito(g, outro) {
+  jogoConflito = g; outroConflito = outro;
+  $("conflito-texto").textContent =
+    `Já marcou como convocado: Equipa ${outro.equipa} ${outro.emCasa ? "vs" : "@"} ${outro.adversario} (${fmtDia(outro.d)}, ${hhmm(outro.d)}). ` +
+    `Este jogo é: Equipa ${g.equipa} ${g.emCasa ? "vs" : "@"} ${g.adversario} (${fmtDia(g.d)}, ${hhmm(g.d)}).`;
+  esconderPaineis();
+  $("conflito").hidden = false;
+  $("conflito").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function resolverConflito(substituir) {
+  const g = jogoConflito, outro = outroConflito;
+  if (!g) return;
+  jogoConflito = null; outroConflito = null;
+  if (substituir && outro) { delete estado[outro.id]; gravarEstado(estado); }
+  decididoConflito.add(g.id);
+  $("conflito").hidden = true;
+  continuarConvocatoria(g);
+  render();
+}
+
+if ($("conflito")) {
+  $("conflito-subst").onclick = () => resolverConflito(true);
+  $("conflito-ambos").onclick = () => resolverConflito(false);
+  $("conflito-cancelar").onclick = () => { jogoConflito = null; outroConflito = null; $("conflito").hidden = true; };
 }
 
 // ---------- Painel «Equipamento deste jogo» (aparece ao tocar em «Convocado») ----------
