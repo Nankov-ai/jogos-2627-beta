@@ -2,6 +2,8 @@
 // Escolhe-se o jogo para que o atleta foi convocado -> abre o Google Calendar já preenchido.
 // O evento no calendário cobre: viagem de ida + chegada ao campo (antecedência) + jogo (1 h 30) + viagem de regresso
 const JOGO_MIN = 90;
+// Equipamento a levar (aparece na descrição do evento do calendário). Para mudar a lista, editar aqui.
+const LEVAR = ["equipamento de jogo", "caneleiras", "chuteiras", "garrafa de água", "CC"];
 const CHAVE = "beta-convocados-v1";   // localStorage: { idJogo: true }
 const CHAVE_DEF = "beta-definicoes-v1"; // localStorage: viagem e antecedência de cada utilizador
 const PADRAO = { configurado: false, modo: "estimativa", fixo: 45, antecedencia: 60 };
@@ -67,6 +69,7 @@ function titulo(g) {
 function detalhes(g) {
   return `Jogo às ${hhmm(g.d)} · sair às ${hhmm(inicioEvento(g))}, chegar ao campo às ${hhmm(somaMin(g.d, -def.antecedencia))}, ` +
     `fim do jogo às ${hhmm(somaMin(g.d, JOGO_MIN))}\n` +
+    `Levar: ${LEVAR.join(", ")}\n` +
     `Liga Sub-11 Futebol 7 · Série ${g.serie} · Jornada ${g.jornada}\nJogo ${g.id}`;
 }
 function linkGoogle(g) {
