@@ -253,9 +253,8 @@ function cartao(g) {
   });
   acoes.append(principal);
 
-  const maisPerto = linkCafeMaisPerto(g);
-  if (maisPerto) acoes.append(botaoLink("☕ Café mais perto", maisPerto, "btn sec"));
-  acoes.append(botaoLink(maisPerto ? "☕ Mais cafés" : "☕ Café perto", linkCafe(g), "btn sec"));
+  // Um só botão de café: o caminho a pé do campo ao café mais próximo (sem dados do café, cai para a pesquisa centrada no campo)
+  acoes.append(botaoLink("☕ Café mais perto", linkCafeMaisPerto(g) || linkCafe(g), "btn sec"));
 
   const registar = document.createElement("button");
   registar.type = "button";
